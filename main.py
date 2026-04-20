@@ -51,3 +51,31 @@ def expenses_by_category():
         result[category] += expense.amount
     
     return result
+
+@app.get("/top-category")
+def get_top_category():
+    if not expenses:
+        return {"message": "No expenses yet"}
+    
+    result = {}
+    
+    for expense in expenses:
+        category = expense.category
+        
+        if category not in result:
+            result[category] = 0
+        
+        result[category] += expense.amount
+    
+    top_category = None
+    max_amount = 0
+    
+    for category, amount in result.items():
+        if amount > max_amount:
+            max_amount = amount
+            top_category = category
+    
+    return {
+        "top_category": top_category,
+        "amount": max_amount
+    }
