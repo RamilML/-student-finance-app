@@ -1,0 +1,29 @@
+from fastapi import FastAPI
+from pydantic import BaseModel
+from typing import List
+from datetime import datetime
+class Expense(BaseModel):
+    title: str
+    amount: float
+    category: str
+    date: datetime
+expenses: List[Expense] = []
+app = FastAPI()
+@app.post("/expenses")
+def add_expense(expense: Expense):
+    expenses.append(expense)
+    return {"message": "Expense added"}
+@app.get("/expenses")
+def get_expenses():
+    return expenses
+
+@app.get("/")
+def home():
+    return {"message": "Hello, student finance app!"}
+@app.delete("/expenses/{index}")
+def delete_expense(index: int):
+    if index < 0 or index >= len(expenses):
+        return {"error": "Invalid index"}
+    
+    deleted = expenses.pop(index)
+    return {"message": "Deleted", "expense": deleted}
