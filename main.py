@@ -20,6 +20,7 @@ def get_expenses():
 @app.get("/")
 def home():
     return {"message": "Hello, student finance app!"}
+
 @app.delete("/expenses/{index}")
 def delete_expense(index: int):
     if index < 0 or index >= len(expenses):
@@ -27,3 +28,12 @@ def delete_expense(index: int):
     
     deleted = expenses.pop(index)
     return {"message": "Deleted", "expense": deleted}
+
+@app.get("/total")
+def get_total():
+    total = 0
+    
+    for expense in expenses:
+        total += expense.amount
+    
+    return {"total": total}
