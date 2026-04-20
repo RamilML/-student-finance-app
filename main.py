@@ -37,3 +37,17 @@ def get_total():
         total += expense.amount
     
     return {"total": total}
+
+@app.get("/by-category")
+def expenses_by_category():
+    result = {}
+    
+    for expense in expenses:
+        category = expense.category
+        
+        if category not in result:
+            result[category] = 0
+        
+        result[category] += expense.amount
+    
+    return result
