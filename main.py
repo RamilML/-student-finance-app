@@ -2,6 +2,11 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import List
 from datetime import datetime
+class ExpenseCreate(BaseModel):
+    title: str
+    amount: float
+    category: str
+    date: datetime
 class Expense(BaseModel):
     id: int
     title: str
@@ -13,7 +18,7 @@ expenses: List[Expense] = []
 app = FastAPI()
 
 @app.post("/expenses")
-def add_expense(expense: Expense):
+def add_expense(expense: ExpenseCreate):
     global current_id
     current_id += 1
     
