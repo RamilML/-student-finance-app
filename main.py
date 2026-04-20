@@ -3,16 +3,30 @@ from pydantic import BaseModel
 from typing import List
 from datetime import datetime
 class Expense(BaseModel):
+    id: int
     title: str
     amount: float
     category: str
     date: datetime
+current_id = 0
 expenses: List[Expense] = []
 app = FastAPI()
+
 @app.post("/expenses")
 def add_expense(expense: Expense):
-    expenses.append(expense)
-    return {"message": "Expense added"}
+    global current_id
+    current_id += 1
+    
+    new_expense = Expense(
+        id=current_id,
+        title=expense.title,
+        amount=expense.amount,
+        category=expense.category,
+        date=expense.date
+    )
+    
+    expenses.append(new_expense)
+    return new_expense
 @app.get("/expenses")
 def get_expenses():
     return expenses
@@ -21,13 +35,14 @@ def get_expenses():
 def home():
     return {"message": "Hello, student finance app!"}
 
-@app.delete("/expenses/{index}")
-def delete_expense(index: int):
-    if index < 0 or index >= len(expenses):
-        return {"error": "Invalid index"}
+@app.delete("/expenses/{expense_id}")
+def delete_expense(expense_id: int):
+    for i, expense in enumerate(expenses):
+        if expense.id == expense_id:
+            deleted = expenses.pop(i)
+            return {"message": "Deleted", "expense": deleted}
     
-    deleted = expenses.pop(index)
-    return {"message": "Deleted", "expense": deleted}
+    return {"error": "Expense not found"}
 
 @app.get("/total")
 def get_total():
