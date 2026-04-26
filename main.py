@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Request
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from typing import List, Optional
@@ -352,5 +353,5 @@ def get_chart_by_date(
     return [{"date": f"{int(r.year)}-{int(r.month):02d}-{int(r.day):02d}", "total": r.total} for r in results]
 
 @app.get("/")
-def home():
-    return {"message": "Finance API with auth, filters, sorting, budget limits and charts!"}
+async def home():
+    return FileResponse("frontend.html")
