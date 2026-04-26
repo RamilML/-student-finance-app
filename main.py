@@ -87,7 +87,8 @@ def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
 def get_password_hash(password):
-    return pwd_context.hash(password)
+    # Ограничиваем длину пароля 72 символами для совместимости с bcrypt
+    return pwd_context.hash(password[:72])
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
@@ -193,8 +194,9 @@ def delete_expense(expense_id: int, db: Session = Depends(get_db), current_user:
     db.commit()
     return {"message": "Deleted"}
 
-@app.get("/total")
-def get_total(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+@app.get("/stats")
+def get_stats(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    """Получить общую статистику"""
     expenses = db.query(models.Expense).filter(models.Expense.user_id == current_user.id).all()
     total = sum(e.amount for e in expenses)
     return {"total": total}
@@ -324,7 +326,7 @@ def get_chart_by_category(
     
     results = query.group_by(models.Expense.category).all()
     
-    return [{"category": r.category, "total": r.total} for r in results]
+    return [{"category": r.category or "Без категории", "total": r.total} for r in results]
 
 @app.get("/charts/by-date")
 def get_chart_by_date(
@@ -361,6 +363,23 @@ def get_chart_by_date(
     ).all()
     
     return [{"date": f"{int(r.year)}-{int(r.month):02d}-{int(r.day):02d}", "total": r.total} for r in results]
+
+# Алиасы для фронтенда
+@app.get("/charts/categories")
+def get_categories_alias(start_date: Optional[datetime] = None, end_date: Optional[datetime] = None, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    return get_chart_by_category(start_date, end_date, db, current_user)
+
+@app.get("/charts/daily")
+def get_daily_alias(start_date: Optional[datetime] = None, end_date: Optional[datetime] = None, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    return get_chart_by_date(start_date, end_date, db, current_user)
+
+@app.get("/budget/status")
+def get_budget_status_alias(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    return get_budget_status(db, current_user)
+
+@app.post("/budget/limit")
+def create_budget_limit_alias(budget_limit: BudgetLimitCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    return create_budget_limit(budget_limit, db, current_user)
 
 @app.get("/")
 async def home():
