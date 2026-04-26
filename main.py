@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from database import SessionLocal, engine, Base
 import models
+from typing import Optional
 
 Base.metadata.create_all(bind=engine)
 
@@ -39,9 +40,22 @@ def add_expense(expense: ExpenseCreate, db: Session = Depends(get_db)):
     db.refresh(db_expense)
     return db_expense
 
+
 @app.get("/expenses")
-def get_expenses(db: Session = Depends(get_db)):
-    return db.query(models.Expense).all()
+def get_expenses(
+    category: Optional[str] = None,
+    min_amount: Optional[float] = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(models.Expense)
+    
+    if category:
+        query = query.filter(models.Expense.category == category)
+    
+    if min_amount:
+        query = query.filter(models.Expense.amount >= min_amount)
+    
+    return query.all()
 
 @app.delete("/expenses/{expense_id}")
 def delete_expense(expense_id: int, db: Session = Depends(get_db)):
