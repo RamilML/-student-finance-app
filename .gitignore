@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ```
 # Python
 __pycache__/
@@ -34,3 +35,6 @@ build/
 dist/
 *.egg-info/
 ```
+=======
+(empty)
+>>>>>>> f8122dd (gitignore)
