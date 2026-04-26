@@ -1,44 +1,5 @@
-```
-# Database files
-*.db
+(frontend.html is a source file, so no need to add anything to .gitignore)
 
-# Environment files
-.env
-.env.local
-*.env.*
+```gitignore
 
-# Dependencies
-.venv/
-venv/
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Logs
-*.log
-
-# Editors
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Build artifacts
-dist/
-build/
-*.egg-info/
-
-# Coverage
-.coverage
-coverage/
-htmlcov/
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Cache
-.mypy_cache/
-.pytest_cache/
 ```
