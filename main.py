@@ -84,6 +84,19 @@ class UserBudgetResponse(UserBudgetCreate):
     class Config:
         from_attributes = True
 
+class IncomeCreate(BaseModel):
+    title: str
+    amount: float
+    source: str
+    date: Optional[datetime] = None
+
+class IncomeResponse(IncomeCreate):
+    id: int
+    user_id: Optional[int] = None
+    
+    class Config:
+        from_attributes = True
+
 # --- Helper functions ---
 
 def get_db():
@@ -208,8 +221,17 @@ def delete_expense(expense_id: int, db: Session = Depends(get_db), current_user:
 def get_stats(db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     """Получить общую статистику"""
     expenses = db.query(models.Expense).filter(models.Expense.user_id == current_user.id).all()
-    total = sum(e.amount for e in expenses)
-    return {"total": total}
+    incomes = db.query(models.Income).filter(models.Income.user_id == current_user.id).all()
+    
+    total_expenses = sum(e.amount for e in expenses)
+    total_incomes = sum(i.amount for i in incomes)
+    balance = total_incomes - total_expenses
+    
+    return {
+        "total_expenses": total_expenses,
+        "total_incomes": total_incomes,
+        "balance": balance
+    }
 
 # --- Авторизация и регистрация ---
 
@@ -464,6 +486,87 @@ def get_user_budget_status(
         "percent_used": min(percent, 100),
         "exceeded": total_spent > budget_amount
     }
+
+# --- Управление доходами ---
+
+@app.post("/incomes", response_model=IncomeResponse)
+def add_income(income: IncomeCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    db_income = models.Income(
+        title=income.title,
+        amount=income.amount,
+        source=income.source,
+        date=income.date or datetime.utcnow(),
+        user_id=current_user.id
+    )
+    db.add(db_income)
+    db.commit()
+    db.refresh(db_income)
+    return db_income
+
+@app.get("/incomes", response_model=List[IncomeResponse])
+def get_incomes(
+    source: Optional[str] = None,
+    min_amount: Optional[float] = None,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    sort_by: Optional[str] = "date",
+    order: Optional[str] = "desc",
+    limit: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    query = db.query(models.Income).filter(models.Income.user_id == current_user.id)
+    
+    # Фильтр по источнику
+    if source:
+        query = query.filter(models.Income.source == source)
+    
+    # Фильтр по минимальной сумме
+    if min_amount:
+        query = query.filter(models.Income.amount >= min_amount)
+    
+    # Фильтр по дате (start_date)
+    if start_date:
+        query = query.filter(models.Income.date >= start_date)
+    
+    # Фильтр по дате (end_date)
+    if end_date:
+        query = query.filter(models.Income.date <= end_date)
+    
+    # Сортировка
+    if sort_by == "amount":
+        if order == "asc":
+            query = query.order_by(models.Income.amount.asc())
+        else:
+            query = query.order_by(models.Income.amount.desc())
+    elif sort_by == "title":
+        if order == "asc":
+            query = query.order_by(models.Income.title.asc())
+        else:
+            query = query.order_by(models.Income.title.desc())
+    else:  # date
+        if order == "asc":
+            query = query.order_by(models.Income.date.asc())
+        else:
+            query = query.order_by(models.Income.date.desc())
+    
+    # Лимит записей
+    if limit:
+        query = query.limit(limit)
+    
+    return query.all()
+
+@app.delete("/incomes/{income_id}")
+def delete_income(income_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    income = db.query(models.Income).filter(
+        models.Income.id == income_id,
+        models.Income.user_id == current_user.id
+    ).first()
+    if not income:
+        raise HTTPException(status_code=404, detail="Income not found")
+    db.delete(income)
+    db.commit()
+    return {"message": "Deleted"}
 
 @app.get("/")
 async def home():
