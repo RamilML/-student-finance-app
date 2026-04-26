@@ -1,1 +1,12 @@
-(frontend.html is a source file, and there are no build artifacts, dependencies, or temp files in the changes)
+```
+# Compiled Python files
+__pycache__/
+*.pyc
+
+# Logs
+*.log
+server.log
+
+# Database (if temporary/generated)
+finance.db
+```
