@@ -1,101 +1,63 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from pydantic import BaseModel
 from typing import List
 from datetime import datetime
+from sqlalchemy.orm import Session
+
+from database import SessionLocal, engine, Base
+import models
+
+Base.metadata.create_all(bind=engine)
+
 class ExpenseCreate(BaseModel):
     title: str
     amount: float
     category: str
     date: datetime
-class Expense(BaseModel):
-    id: int
-    title: str
-    amount: float
-    category: str
-    date: datetime
-current_id = 0
-expenses: List[Expense] = []
+
 app = FastAPI()
 
+# Dependency
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 @app.post("/expenses")
-def add_expense(expense: ExpenseCreate):
-    global current_id
-    current_id += 1
-    
-    new_expense = Expense(
-        id=current_id,
+def add_expense(expense: ExpenseCreate, db: Session = Depends(get_db)):
+    db_expense = models.Expense(
         title=expense.title,
         amount=expense.amount,
         category=expense.category,
         date=expense.date
     )
-    
-    expenses.append(new_expense)
-    return new_expense
+    db.add(db_expense)
+    db.commit()
+    db.refresh(db_expense)
+    return db_expense
+
 @app.get("/expenses")
-def get_expenses():
-    return expenses
+def get_expenses(db: Session = Depends(get_db)):
+    return db.query(models.Expense).all()
+
+@app.delete("/expenses/{expense_id}")
+def delete_expense(expense_id: int, db: Session = Depends(get_db)):
+    expense = db.query(models.Expense).filter(models.Expense.id == expense_id).first()
+    if not expense:
+        return {"error": "Expense not found"}
+    db.delete(expense)
+    db.commit()
+    return {"message": "Deleted"}
+
+@app.get("/total")
+def get_total(db: Session = Depends(get_db)):
+    expenses = db.query(models.Expense).all()
+    total = sum(e.amount for e in expenses)
+    return {"total": total}
 
 @app.get("/")
 def home():
-    return {"message": "Hello, student finance app!"}
-
-@app.delete("/expenses/{expense_id}")
-def delete_expense(expense_id: int):
-    for i, expense in enumerate(expenses):
-        if expense.id == expense_id:
-            deleted = expenses.pop(i)
-            return {"message": "Deleted", "expense": deleted}
-    
-    return {"error": "Expense not found"}
-
-@app.get("/total")
-def get_total():
-    total = 0
-    
-    for expense in expenses:
-        total += expense.amount
-    
-    return {"total": total}
-
-@app.get("/by-category")
-def expenses_by_category():
-    result = {}
-    
-    for expense in expenses:
-        category = expense.category
-        
-        if category not in result:
-            result[category] = 0
-        
-        result[category] += expense.amount
-    
-    return result
-
-@app.get("/top-category")
-def get_top_category():
-    if not expenses:
-        return {"message": "No expenses yet"}
-    
-    result = {}
-    
-    for expense in expenses:
-        category = expense.category
-        
-        if category not in result:
-            result[category] = 0
-        
-        result[category] += expense.amount
-    
-    top_category = None
-    max_amount = 0
-    
-    for category, amount in result.items():
-        if amount > max_amount:
-            max_amount = amount
-            top_category = category
-    
-    return {
-        "top_category": top_category,
-        "amount": max_amount
-    }
+    return {"message": "Hello, student finance app with DB!"}
