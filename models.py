@@ -12,6 +12,16 @@ class Expense(Base):
     date = Column(DateTime, default=datetime.utcnow)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
+class Income(Base):
+    __tablename__ = "incomes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String)
+    amount = Column(Float)
+    source = Column(String)  # Источник дохода (зарплата, фриланс и т.д.)
+    date = Column(DateTime, default=datetime.utcnow)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
 class User(Base):
     __tablename__ = "users"
 

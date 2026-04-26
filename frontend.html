@@ -264,6 +264,7 @@
 
             <div class="tabs">
                 <button class="tab-btn active" onclick="showTab('expenses')"><i class="fas fa-list"></i> Расходы</button>
+                <button class="tab-btn" onclick="showTab('incomes')"><i class="fas fa-arrow-down"></i> Доходы</button>
                 <button class="tab-btn" onclick="showTab('addExpense')"><i class="fas fa-plus-circle"></i> Добавить</button>
                 <button class="tab-btn" onclick="showTab('budget')"><i class="fas fa-piggy-bank"></i> Бюджет</button>
                 <button class="tab-btn" onclick="showTab('charts')"><i class="fas fa-chart-pie"></i> Графики</button>
@@ -579,7 +580,7 @@
             if (startDate) params.append('start_date', startDate);
             if (endDate) params.append('end_date', endDate);
             if (sortBy) params.append('sort_by', sortBy);
-            if (sortOrder) params.append('sort_order', sortOrder);
+            if (sortOrder) params.append('order', sortOrder);
             if (limit) params.append('limit', limit);
 
             try {
@@ -826,9 +827,9 @@
                 const res = await fetch(API_URL + '/stats', { headers: getHeaders() });
                 if (res.ok) {
                     const stats = await res.json();
-                    document.getElementById('totalIncome').textContent = '0 ₽'; // Пока только расходы
-                    document.getElementById('totalExpense').textContent = stats.total.toFixed(2) + ' ₽';
-                    document.getElementById('balance').textContent = (-stats.total).toFixed(2) + ' ₽';
+                    document.getElementById('totalIncome').textContent = stats.total_incomes.toFixed(2) + ' ₽';
+                    document.getElementById('totalExpense').textContent = stats.total_expenses.toFixed(2) + ' ₽';
+                    document.getElementById('balance').textContent = stats.balance.toFixed(2) + ' ₽';
                 }
             } catch(e) {
                 console.error('Ошибка загрузки статистики:', e);
