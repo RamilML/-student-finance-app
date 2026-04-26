@@ -74,6 +74,16 @@ class BudgetLimitResponse(BudgetLimitCreate):
     class Config:
         from_attributes = True
 
+class UserBudgetCreate(BaseModel):
+    budget_amount: float
+
+class UserBudgetResponse(UserBudgetCreate):
+    id: int
+    user_id: Optional[int] = None
+    
+    class Config:
+        from_attributes = True
+
 # --- Helper functions ---
 
 def get_db():
@@ -380,6 +390,80 @@ def get_budget_status_alias(db: Session = Depends(get_db), current_user: models.
 @app.post("/budget/limit")
 def create_budget_limit_alias(budget_limit: BudgetLimitCreate, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     return create_budget_limit(budget_limit, db, current_user)
+
+# --- Управление общим бюджетом пользователя ---
+
+@app.get("/user-budget", response_model=UserBudgetResponse)
+def get_user_budget(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Получить общий бюджет пользователя"""
+    budget = db.query(models.UserBudget).filter(
+        models.UserBudget.user_id == current_user.id
+    ).first()
+    
+    if not budget:
+        # Создаем бюджет по умолчанию если нет
+        budget = models.UserBudget(budget_amount=0.0, user_id=current_user.id)
+        db.add(budget)
+        db.commit()
+        db.refresh(budget)
+    
+    return budget
+
+@app.put("/user-budget", response_model=UserBudgetResponse)
+def update_user_budget(
+    budget_data: UserBudgetCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Обновить общий бюджет пользователя"""
+    budget = db.query(models.UserBudget).filter(
+        models.UserBudget.user_id == current_user.id
+    ).first()
+    
+    if budget:
+        budget.budget_amount = budget_data.budget_amount
+    else:
+        budget = models.UserBudget(budget_amount=budget_data.budget_amount, user_id=current_user.id)
+        db.add(budget)
+    
+    db.commit()
+    db.refresh(budget)
+    return budget
+
+@app.get("/user-budget/status")
+def get_user_budget_status(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Получить статус общего бюджета (бюджет vs расходы)"""
+    # Получаем бюджет
+    budget = db.query(models.UserBudget).filter(
+        models.UserBudget.user_id == current_user.id
+    ).first()
+    budget_amount = budget.budget_amount if budget else 0.0
+    
+    # Считаем общие расходы за месяц
+    now = datetime.utcnow()
+    period_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    
+    total_spent = db.query(func.sum(models.Expense.amount)).filter(
+        models.Expense.user_id == current_user.id,
+        models.Expense.date >= period_start
+    ).scalar() or 0.0
+    
+    remaining = budget_amount - total_spent
+    percent = (total_spent / budget_amount * 100) if budget_amount > 0 else 0
+    
+    return {
+        "budget": budget_amount,
+        "spent": total_spent,
+        "remaining": remaining,
+        "percent_used": min(percent, 100),
+        "exceeded": total_spent > budget_amount
+    }
 
 @app.get("/")
 async def home():

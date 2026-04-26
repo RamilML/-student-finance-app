@@ -360,6 +360,24 @@
             <!-- Бюджет -->
             <div id="budgetTab" class="tab-content">
                 <h3><i class="fas fa-piggy-bank"></i> Управление бюджетом</h3>
+                
+                <!-- Общий бюджет пользователя -->
+                <div style="background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%); padding: 25px; border-radius: 15px; margin-bottom: 25px; border: 1px solid #e8ecff;">
+                    <h4 style="margin-bottom: 15px; color: #555;"><i class="fas fa-wallet"></i> Общий месячный бюджет</h4>
+                    <div class="inline-form">
+                        <div class="form-group" style="flex: 2;">
+                            <label><i class="fas fa-ruble-sign"></i>Установить бюджет на месяц</label>
+                            <input type="number" step="0.01" id="userBudgetAmount" placeholder="Введите сумму бюджета">
+                        </div>
+                        <div class="form-group" style="display: flex; align-items: flex-end;">
+                            <button onclick="saveUserBudget()" class="success"><i class="fas fa-save"></i>Сохранить</button>
+                        </div>
+                    </div>
+                    <div id="userBudgetStatus" style="margin-top: 20px;"></div>
+                </div>
+                
+                <!-- Лимиты по категориям -->
+                <h4><i class="fas fa-chart-bar"></i> Лимиты по категориям</h4>
                 <div class="inline-form" style="margin-bottom: 20px;">
                     <div class="form-group">
                         <label><i class="fas fa-tag"></i>Категория</label>
@@ -381,7 +399,7 @@
                         <button onclick="addBudgetLimit()" class="success"><i class="fas fa-save"></i>Установить лимит</button>
                     </div>
                 </div>
-                <h4><i class="fas fa-chart-bar"></i> Статус бюджета</h4>
+                <h4><i class="fas fa-chart-bar"></i> Статус лимитов</h4>
                 <div id="budgetStatus" class="budget-cards"></div>
                 <div id="budgetEmpty" class="empty-state hidden">
                     <i class="fas fa-piggy-bank"></i>
@@ -449,6 +467,7 @@
             }
             loadExpenses();
             loadBudgetStatus();
+            loadUserBudget();
             loadStats();
         }
 
@@ -536,7 +555,7 @@
             document.getElementById(tabName + 'Tab').classList.add('active');
             event.target.closest('.tab-btn').classList.add('active');
             if (tabName === 'expenses') loadExpenses();
-            if (tabName === 'budget') loadBudgetStatus();
+            if (tabName === 'budget') { loadBudgetStatus(); loadUserBudget(); }
             if (tabName === 'charts') loadCharts();
         }
 
@@ -711,6 +730,81 @@
                     document.getElementById('budgetCategory').value = '';
                     document.getElementById('budgetLimitAmount').value = '';
                     loadBudgetStatus();
+                } else {
+                    const data = await res.json();
+                    alert(data.detail || 'Ошибка');
+                }
+            } catch(e) {
+                alert('Ошибка подключения');
+            }
+        }
+
+        async function loadUserBudget() {
+            try {
+                // Загружаем текущий бюджет
+                const res = await fetch(API_URL + '/user-budget', { headers: getHeaders() });
+                if (res.ok) {
+                    const budget = await res.json();
+                    document.getElementById('userBudgetAmount').value = budget.budget_amount || '';
+                }
+                
+                // Загружаем статус бюджета
+                const statusRes = await fetch(API_URL + '/user-budget/status', { headers: getHeaders() });
+                if (statusRes.ok) {
+                    const status = await statusRes.json();
+                    const container = document.getElementById('userBudgetStatus');
+                    
+                    if (status.budget > 0) {
+                        const percent = status.percent_used.toFixed(0);
+                        const isExceeded = status.exceeded;
+                        const isWarning = percent > 80 && !isExceeded;
+                        
+                        let progressClass = 'ok';
+                        let statusColor = '#38ef7d';
+                        if (isExceeded) { progressClass = 'exceeded'; statusColor = '#f5576c'; }
+                        else if (isWarning) { progressClass = 'warning'; statusColor = '#f5af19'; }
+                        
+                        container.innerHTML = `
+                            <div style="margin-top: 15px;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                                    <span style="color: #666; font-size: 0.95em;">Использовано: ${status.spent.toFixed(2)} ₽ из ${status.budget.toFixed(2)} ₽</span>
+                                    <span style="color: ${statusColor}; font-weight: 600;">${percent}%</span>
+                                </div>
+                                <div style="height: 10px; background: #e0e0e0; border-radius: 5px; overflow: hidden;">
+                                    <div style="height: 100%; width: ${percent}%; background: ${statusColor}; border-radius: 5px; transition: width 0.5s ease;"></div>
+                                </div>
+                                <div style="margin-top: 10px; display: flex; justify-content: space-between; font-size: 0.9em;">
+                                    <span style="color: #888;">Остаток: <strong style="color: ${isExceeded ? '#f5576c' : '#38ef7d'};">${status.remaining.toFixed(2)} ₽</strong></span>
+                                    ${isExceeded ? '<span style="color: #f5576c; font-weight: 600;"><i class="fas fa-exclamation-triangle"></i> Превышен на ' + Math.abs(status.remaining).toFixed(2) + ' ₽</span>' : ''}
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        container.innerHTML = '<p style="margin-top: 15px; color: #888; text-align: center;"><i class="fas fa-info-circle"></i> Установите общий бюджет для отслеживания расходов</p>';
+                    }
+                }
+            } catch(e) {
+                console.error('Ошибка загрузки бюджета пользователя:', e);
+            }
+        }
+
+        async function saveUserBudget() {
+            const amount = parseFloat(document.getElementById('userBudgetAmount').value);
+            
+            if (!amount || amount < 0) {
+                alert('Введите корректную сумму бюджета');
+                return;
+            }
+
+            try {
+                const res = await fetch(API_URL + '/user-budget', {
+                    method: 'PUT',
+                    headers: { ...getHeaders(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ budget_amount: amount })
+                });
+                if (res.ok) {
+                    alert('Бюджет сохранен!');
+                    loadUserBudget();
                 } else {
                     const data = await res.json();
                     alert(data.detail || 'Ошибка');

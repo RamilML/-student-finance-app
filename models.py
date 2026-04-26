@@ -27,3 +27,10 @@ class BudgetLimit(Base):
     limit_amount = Column(Float)
     period = Column(String, default="monthly")  # daily, weekly, monthly
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+class UserBudget(Base):
+    __tablename__ = "user_budgets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    budget_amount = Column(Float, default=0.0)  # Общий бюджет пользователя
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=True)
